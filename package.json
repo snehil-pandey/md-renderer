@@ -1,0 +1,23 @@
+{
+  "name": "md-renderer",
+  "version": "1.0.0",
+  "description": "Production-grade Markdown-to-HTML rendering API with themes, caching, and security",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "compression": "^1.7.4",
+    "express": "^4.18.2",
+    "highlight.js": "^11.9.0",
+    "lru-cache": "^10.2.0",
+    "markdown-it": "^14.1.0",
+    "markdown-it-anchor": "^8.6.7",
+    "markdown-it-task-lists": "^2.1.1",
+    "sanitize-html": "^2.12.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
