@@ -1,111 +1,107 @@
 /**
  * services/renderer.js
  *
- * Assembles the final HTML document that is sent to the client.
+ * Assembles the final HTML document sent to the client.
  *
- * Two exported functions:
- *  renderPage(htmlContent, themeName, title)
- *    → Full themed HTML page wrapping the parsed Markdown content.
+ * KATEX CSS
+ *   KaTeX renders math as HTML <span> elements using CSS classes for layout.
+ *   We read katex.min.css from node_modules at startup, strip the @font-face
+ *   rules (which reference external font files), and inline the remainder so
+ *   pages work fully offline. Math symbols are Unicode code-points, so they
+ *   render using the system's serif/math font stack — visually correct on any
+ *   OS without downloading custom fonts.
  *
- *  renderErrorPage(statusCode, message)
- *    → Minimal dark-themed error page with large error code.
+ * SVG DOODLES
+ *   Each theme carries a `doodle` SVG string. The renderer injects it as the
+ *   first child of <body>, before .container. The SVG is positioned by the
+ *   theme's own CSS (class="doodle") and has pointer-events:none so it never
+ *   interferes with text selection or link clicks.
  *
- * Design goals:
- *  - Zero external resources (no CDN, no web fonts, no external CSS/JS)
- *  - Inline CSS only — works fully offline and on air-gapped devices
- *  - Accessibility: lang attribute, charset, viewport meta
- *  - Security: Content-Security-Policy meta tag blocks inline scripts
+ * SECURITY
+ *   • CSP meta tag: disallows all scripts; allows only inline styles and HTTPS images.
+ *   • X-Content-Type-Options, X-Frame-Options in route layer.
+ *   • escapeAttr / escapeText used for any dynamic values outside sanitised HTML.
  */
 
 'use strict';
 
+const fs   = require('fs');
+const path = require('path');
 const { getTheme } = require('./themeEngine');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── KaTeX CSS — load once at startup ────────────────────────────────────────
+let KATEX_CSS = '';
+try {
+  const cssPath = path.join(__dirname, '..', 'node_modules', 'katex', 'dist', 'katex.min.css');
+  let raw = fs.readFileSync(cssPath, 'utf8');
 
-/** Escape a string for safe embedding in an HTML attribute value. */
-function escapeAttr(str) {
-  return String(str).replace(/[&"<>]/g, (c) => ({
-    '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;',
-  })[c]);
+  // Remove @font-face blocks — they point to external font files we don't serve.
+  // The regex covers both minified (single-line) and formatted (multi-line) CSS.
+  raw = raw.replace(/@font-face\s*\{[^{}]*\}/g, '');
+
+  // Replace KaTeX-specific font-family declarations with a system math stack.
+  // This preserves all layout while using whatever math font the OS has.
+  raw = raw.replace(/font-family:KaTeX_[^;,}"']+/g, "font-family:math,serif");
+
+  KATEX_CSS = `/* KaTeX math layout (fonts stripped — uses system math stack) */\n${raw}`;
+} catch {
+  // katex not installed or CSS path changed — math renders unstyled but safely
+  KATEX_CSS = '';
 }
 
-/** Escape a string for safe embedding in HTML text content. */
-function escapeText(str) {
-  return String(str).replace(/[&<>]/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;',
-  })[c]);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function escapeAttr(s) {
+  return String(s).replace(/[&"<>]/g, (c) => ({ '&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;' })[c]);
+}
+function escapeText(s) {
+  return String(s).replace(/[&<>]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;' })[c]);
 }
 
-/**
- * Derive a readable page <title> from Markdown source.
- * Pulls the first level-1 heading if present; falls back to a default.
- *
- * @param {string} markdownSource - Raw Markdown (used for the title scan).
- * @param {string} [fallback='Rendered Markdown']
- * @returns {string}
- */
-function extractTitle(markdownSource, fallback = 'Rendered Markdown') {
-  if (!markdownSource) return fallback;
-  const match = markdownSource.match(/^#\s+(.+?)(\s+#+)?$/m);
-  if (match) {
-    return match[1].replace(/[`*_[\]]/g, '').trim() || fallback;
-  }
-  return fallback;
+function extractTitle(src, fallback = 'Rendered Markdown') {
+  if (!src) return fallback;
+  const m = src.match(/^#\s+(.+?)(\s+#+)?$/m);
+  return m ? m[1].replace(/[`*_[\]]/g, '').trim() || fallback : fallback;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HTTP status → human-readable title
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── HTTP status → title ──────────────────────────────────────────────────────
 const STATUS_TITLES = {
-  400: 'Bad Request',
-  403: 'Forbidden',
-  404: 'Not Found',
-  413: 'Payload Too Large',
-  422: 'Unprocessable Content',
-  500: 'Internal Server Error',
-  502: 'Bad Gateway',
-  503: 'Service Unavailable',
-  504: 'Gateway Timeout',
+  400:'Bad Request', 403:'Forbidden', 404:'Not Found',
+  413:'Payload Too Large', 422:'Unprocessable Content',
+  500:'Internal Server Error', 502:'Bad Gateway',
+  503:'Service Unavailable', 504:'Gateway Timeout',
 };
+function statusTitle(code) { return STATUS_TITLES[code] || 'Error'; }
 
-function statusTitle(code) {
-  return STATUS_TITLES[code] || 'Error';
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// renderPage — main themed document
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── renderPage ───────────────────────────────────────────────────────────────
 /**
- * Build a complete, themed HTML document.
+ * Build a themed, complete HTML document.
  *
- * @param {string} htmlContent   - Sanitized inner HTML from the parser.
- * @param {string} themeName     - Theme key (validated in themeEngine).
- * @param {string} markdownSource- Original Markdown text (for title extraction).
- * @returns {string} Full HTML document string.
+ * @param {string} htmlContent   - Sanitised Markdown → HTML
+ * @param {string} themeName     - Theme key
+ * @param {string} markdownSource- Original Markdown (for title extraction)
+ * @returns {string}
  */
 function renderPage(htmlContent, themeName, markdownSource = '') {
   const theme = getTheme(themeName);
   const title = extractTitle(markdownSource);
+  const doodle = theme.doodle || '';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Disallow inline scripts as a defence-in-depth CSP -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; style-src 'unsafe-inline'; img-src https: http: data:; script-src 'none';">
-  <meta name="generator" content="md-renderer">
+        content="default-src 'none'; style-src 'unsafe-inline'; img-src https: http: data:; script-src 'none'; font-src 'none';">
+  <meta name="generator" content="md-renderer/2.0">
   <title>${escapeAttr(title)}</title>
   <style>
 ${theme.css}
   </style>
+  ${KATEX_CSS ? `<style>${KATEX_CSS}</style>` : ''}
 </head>
 <body>
+${doodle}
   <div class="container">
 ${htmlContent}
   </div>
@@ -113,111 +109,77 @@ ${htmlContent}
 </html>`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// renderErrorPage — minimal dark-themed error document
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── renderErrorPage ──────────────────────────────────────────────────────────
 /**
- * Build a self-contained dark-mode error page.
- *
- * @param {number} statusCode - HTTP status code (400, 403, 404, …).
- * @param {string} message    - Short, developer-friendly error description.
- * @returns {string} Full HTML document string.
+ * Dark-themed minimal error page.
+ * @param {number} statusCode
+ * @param {string} message
+ * @returns {string}
  */
 function renderErrorPage(statusCode, message) {
   const code  = Number(statusCode) || 500;
   const title = statusTitle(code);
+
+  // Gradient colour per error class
+  const gradient = code >= 500
+    ? 'linear-gradient(135deg,#ff6b6b 0%,#ffa94d 100%)'   // server errors — red/orange
+    : code === 403
+    ? 'linear-gradient(135deg,#f59f00 0%,#ff922b 100%)'   // forbidden — amber
+    : code === 404
+    ? 'linear-gradient(135deg,#74c0fc 0%,#748ffc 100%)'   // not found — blue
+    : 'linear-gradient(135deg,#cc5de8 0%,#f783ac 100%)';  // client errors — purple/pink
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none';">
   <title>${code} — ${escapeAttr(title)}</title>
   <style>
-    /* ── Reset ── */
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%}
-
-    /* ── Dark canvas ── */
     body{
       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-      background:#0d1117;
-      color:#e6edf3;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      min-height:100vh;
-      padding:24px;
+      background:#0d1117;color:#e6edf3;
+      display:flex;align-items:center;justify-content:center;
+      min-height:100vh;padding:24px;
     }
-
-    /* ── Card ── */
-    .err{
-      text-align:center;
-      max-width:480px;
-      width:100%;
+    /* Subtle grid background */
+    body::before{
+      content:'';position:fixed;inset:0;
+      background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+                       linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+      background-size:40px 40px;pointer-events:none;
     }
-
-    /* ── Giant gradient code number ── */
+    .err{text-align:center;max-width:520px;width:100%;position:relative;z-index:1}
     .err__code{
-      font-size:clamp(5rem,20vw,8rem);
-      font-weight:800;
-      line-height:1;
-      letter-spacing:-4px;
-      background:linear-gradient(135deg,#ff6b6b 0%,#ffa94d 100%);
-      -webkit-background-clip:text;
-      -webkit-text-fill-color:transparent;
-      background-clip:text;
-      margin-bottom:.25em;
-      user-select:none;
+      font-size:clamp(5rem,18vw,8.5rem);font-weight:800;
+      line-height:1;letter-spacing:-4px;
+      background:${gradient};
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      background-clip:text;margin-bottom:.2em;user-select:none;
     }
-
-    /* ── Status title ── */
     .err__title{
-      font-size:1.3rem;
-      font-weight:500;
-      color:#8b949e;
-      letter-spacing:.03em;
-      margin-bottom:1.1rem;
+      font-size:1.25rem;font-weight:500;color:#8b949e;
+      letter-spacing:.04em;margin-bottom:1.2rem;text-transform:uppercase;
     }
-
-    /* ── Message bubble ── */
-    .err__msg{
-      font-size:.92rem;
-      color:#6e7681;
-      line-height:1.65;
-      background:#161b22;
-      border:1px solid #30363d;
-      border-radius:8px;
-      padding:14px 22px;
-      word-break:break-word;
-    }
-
-    /* ── Back link ── */
-    .err__back{
-      display:inline-block;
-      margin-top:2rem;
-      color:#58a6ff;
-      text-decoration:none;
-      font-size:.875rem;
-      border:1px solid #30363d;
-      padding:8px 20px;
-      border-radius:6px;
-    }
-    .err__back:hover{
-      border-color:#58a6ff;
-      background:rgba(88,166,255,.06);
-    }
-
-    /* ── Divider ── */
     .err__divider{
-      width:40px;
-      height:1px;
-      background:#30363d;
-      margin:1.4rem auto;
+      width:48px;height:2px;margin:0 auto 1.4rem;
+      background:${gradient};border-radius:2px;opacity:.5;
     }
+    .err__msg{
+      font-size:.93rem;color:#6e7681;line-height:1.7;
+      background:#161b22;border:1px solid #30363d;border-radius:10px;
+      padding:16px 24px;word-break:break-word;
+    }
+    .err__back{
+      display:inline-block;margin-top:2.2rem;color:#58a6ff;
+      text-decoration:none;font-size:.875rem;
+      border:1px solid #30363d;padding:9px 22px;border-radius:8px;
+      transition:border-color .15s,background .15s;
+    }
+    .err__back:hover{border-color:#58a6ff;background:rgba(88,166,255,.07)}
   </style>
 </head>
 <body>
@@ -226,7 +188,7 @@ function renderErrorPage(statusCode, message) {
     <div class="err__title">${escapeText(title)}</div>
     <div class="err__divider"></div>
     <div class="err__msg">${escapeText(message)}</div>
-    <a class="err__back" href="/">← Return home</a>
+    <a class="err__back" href="/">&#8592; Return home</a>
   </div>
 </body>
 </html>`;

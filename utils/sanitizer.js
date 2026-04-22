@@ -1,130 +1,143 @@
 /**
  * utils/sanitizer.js
  *
- * Post-render HTML sanitization layer using sanitize-html.
+ * Post-render HTML sanitisation layer.
  *
- * Why sanitize after parsing?
- *   markdown-it renders Markdown → HTML.  Even with `html: false` in
- *   markdown-it (which drops raw HTML blocks), plugin output and edge-cases
- *   can emit attributes we don't want.  A second pass with sanitize-html
- *   gives a defence-in-depth guarantee against XSS.
+ * Defence-in-depth:
+ *   markdown-it already escapes raw HTML (html:false), but plugins
+ *   (emoji, footnotes, KaTeX, containers) generate trusted HTML that
+ *   needs to survive the sanitiser. This allowlist is tuned so that
+ *   all plugin output passes through intact while genuine XSS vectors
+ *   (script, event handlers, dangerous schemes) are stripped.
  *
- * Policy:
- *   - Only a curated set of tags and attributes are allowed.
- *   - All href/src values are scheme-checked (no javascript:, data:, etc.).
- *   - External links get rel="noopener noreferrer" automatically.
- *   - Inline event handlers (onclick, onerror, …) are stripped.
- *   - <script>, <style>, <iframe>, <object>, <embed> are never allowed.
+ * KaTeX note:
+ *   KaTeX renders math to <span> elements with inline `style` attributes
+ *   for sizing and positioning. We allow `style` on spans but NOT on
+ *   arbitrary elements, and we validate it below. The alternative —
+ *   stripping style — would break all math rendering.
  */
 
 'use strict';
 
 const sanitizeHtml = require('sanitize-html');
 
-// ─── Allowed HTML tags ────────────────────────────────────────────────────────
 const ALLOWED_TAGS = [
   // Structure
-  'div', 'span', 'section', 'article', 'header', 'footer', 'main',
+  'div','span','section','article','header','footer','main','nav','aside',
   // Headings
-  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'h1','h2','h3','h4','h5','h6',
   // Text
-  'p', 'br', 'hr', 'wbr',
-  // Inline formatting
-  'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ins', 'mark',
-  'sub', 'sup', 'small', 'abbr', 'cite', 'q', 'dfn', 'var', 'samp', 'kbd',
+  'p','br','hr','wbr',
+  // Inline
+  'strong','b','em','i','u','s','del','ins','mark',
+  'sub','sup','small','abbr','cite','q','dfn','var','samp','kbd',
   // Lists
-  'ul', 'ol', 'li', 'dl', 'dt', 'dd',
-  // Blockquote / pre / code
-  'blockquote', 'pre', 'code',
+  'ul','ol','li','dl','dt','dd',
+  // Quote / code
+  'blockquote','pre','code',
   // Tables
-  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
+  'table','thead','tbody','tfoot','tr','th','td','caption','colgroup','col',
   // Media
-  'a', 'img', 'figure', 'figcaption',
-  // Task-list checkboxes (markdown-it-task-lists output)
-  'input',
-  // Highlight.js wraps tokens in <span class="hljs-*">
+  'a','img','figure','figcaption','picture','source',
+  // Forms (checkboxes only for task lists)
+  'input','label',
+  // Highlight.js + KaTeX use spans heavily
+  // Footnotes use <section class="footnotes"> and <hr class="footnotes-sep">
+  // Containers use <div class="custom-container ...">
+  // Emoji are plain Unicode text / <img> — already covered
+  // Math: KaTeX uses nested spans with style — covered by span rule
+  // Details/summary for collapsible containers
+  'details','summary',
 ];
 
-// ─── Allowed attributes per tag ──────────────────────────────────────────────
 const ALLOWED_ATTRS = {
-  // Headings get IDs from markdown-it-anchor
-  h1: ['id'], h2: ['id'], h3: ['id'], h4: ['id'], h5: ['id'], h6: ['id'],
-  // Links
-  a: ['href', 'title', 'name', 'target', 'rel'],
-  // Images
-  img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
+  // Anchors
+  h1:['id'], h2:['id'], h3:['id'], h4:['id'], h5:['id'], h6:['id'],
+  a: ['href','title','name','target','rel','id'],
+  img: ['src','alt','title','width','height','loading','class'],
   // Tables
-  th: ['align', 'scope', 'colspan', 'rowspan'],
-  td: ['align', 'colspan', 'rowspan'],
-  col: ['span', 'width'],
+  th: ['align','scope','colspan','rowspan'],
+  td: ['align','colspan','rowspan'],
+  col: ['span','width'],
   colgroup: ['span'],
-  // Code / pre get class for syntax-highlighting hooks
+  // Code highlighting
   code: ['class'],
-  pre: ['class'],
-  // Generic class/id for theme styling
-  div: ['class', 'id'],
-  span: ['class', 'id'],
-  section: ['class', 'id'],
-  // Abbreviations
+  pre:  ['class'],
+  // Containers, emoji wrappers, KaTeX, footnotes all use div/span with class
+  div:     ['class','id','data-info'],
+  span:    ['class','id','style'],   // style needed for KaTeX layout
+  section: ['class','id'],
+  // Task lists
+  input: ['type','checked','disabled','class','id'],
+  label: ['for','class'],
+  // Details
+  details: ['class','open'],
+  summary: ['class'],
+  // Generic
   abbr: ['title'],
-  // Task-list checkboxes: type="checkbox" checked disabled only
-  input: ['type', 'checked', 'disabled', 'class'],
+  figure: ['class'],
+  figcaption: ['class'],
 };
 
-// ─── Sanitize configuration ───────────────────────────────────────────────────
+// CSS properties KaTeX actually emits — anything else is stripped
+const SAFE_CSS_PROPS = new Set([
+  'height','width','vertical-align','top','bottom','left','right',
+  'margin-top','margin-bottom','margin-left','margin-right',
+  'padding-top','padding-bottom','padding-left','padding-right',
+  'font-size','min-width','max-width','min-height','max-height',
+  'display','position','border','border-radius','overflow',
+]);
+
+function filterKatexStyle(styleValue) {
+  if (!styleValue) return undefined;
+  const parts = styleValue.split(';').map(s => s.trim()).filter(Boolean);
+  const safe = parts.filter(decl => {
+    const prop = decl.split(':')[0].trim().toLowerCase();
+    return SAFE_CSS_PROPS.has(prop);
+  });
+  return safe.length ? safe.join(';') + ';' : undefined;
+}
+
 const SANITIZE_OPTIONS = {
   allowedTags: ALLOWED_TAGS,
   allowedAttributes: ALLOWED_ATTRS,
-
-  // Allow only safe URL schemes in href/src
-  allowedSchemes: ['https', 'http', 'mailto'],
-  allowedSchemesAppliedToAttributes: ['href', 'src', 'action'],
+  allowedSchemes: ['https','http','mailto'],
+  allowedSchemesAppliedToAttributes: ['href','src','action'],
   allowProtocolRelative: false,
-
-  // Discard unknown tags entirely rather than keeping their children
   disallowedTagsMode: 'discard',
 
-  // Defence-in-depth: strip any attribute whose name starts with "on"
-  // (covers onclick, onerror, onload, onmouseover, etc.)
-  // sanitize-html's allowedAttributes already excludes these, but this
-  // exclusiveFilter provides an extra guarantee for edge cases.
+  // Strip on* attributes and filter span style to KaTeX-safe props only
   exclusiveFilter: (frame) => {
-    // Remove any remaining on* attributes from surviving tags
     if (frame.attribs) {
       for (const attr of Object.keys(frame.attribs)) {
         if (/^on/i.test(attr)) delete frame.attribs[attr];
       }
+      // Filter style on spans to only KaTeX-safe properties
+      if (frame.tag === 'span' && frame.attribs.style) {
+        const filtered = filterKatexStyle(frame.attribs.style);
+        if (filtered) frame.attribs.style = filtered;
+        else delete frame.attribs.style;
+      }
     }
-    return false; // false = keep the element, just with cleaned attribs
+    return false;
   },
 
-  // Force external links to be safe
   transformTags: {
     a: (tagName, attribs) => {
       const href = (attribs.href || '').trim();
-
-      // Strip any href that somehow slipped through with a bad scheme
-      const safe =
-        href.startsWith('https://') ||
-        href.startsWith('http://') ||
-        href.startsWith('mailto:') ||
-        href.startsWith('#');
-
+      const safe = href.startsWith('https://') || href.startsWith('http://')
+                || href.startsWith('mailto:') || href.startsWith('#');
       return {
         tagName,
         attribs: {
           ...attribs,
           href: safe ? href : '#',
-          // Open external links in new tab safely
-          target: href.startsWith('#') ? undefined : '_blank',
-          rel: href.startsWith('#') ? undefined : 'noopener noreferrer',
+          ...(href.startsWith('#') ? {} : { target: '_blank', rel: 'noopener noreferrer' }),
         },
       };
     },
-
-    // Ensure checkbox inputs are really just read-only checkboxes
-    input: (_tagName, attribs) => {
-      if (attribs.type !== 'checkbox') return false; // drop non-checkboxes
+    input: (_t, attribs) => {
+      if (attribs.type !== 'checkbox') return false;
       return {
         tagName: 'input',
         attribs: {
@@ -138,15 +151,8 @@ const SANITIZE_OPTIONS = {
   },
 };
 
-/**
- * Sanitize an HTML string, stripping any tags/attributes not in the allowlist.
- *
- * @param {string} html - Raw HTML from the Markdown parser.
- * @returns {string} Safe HTML, ready to embed in a page.
- */
 function sanitize(html) {
   return sanitizeHtml(html, SANITIZE_OPTIONS);
 }
 
 module.exports = { sanitize };
-// (module.exports stays the same — the block below is a no-op re-export guard)
