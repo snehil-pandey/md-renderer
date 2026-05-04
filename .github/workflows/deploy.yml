@@ -1,7 +1,7 @@
 # .github/workflows/deploy.yml
 #
 # Runs tests on every push and PR.
-# Deploys to Railway on pushes to main (only if tests pass).
+# Deploys to Vercel on pushes to main (only if tests pass).
 #
 # To switch to Render or Fly, replace the "Deploy" step — the test job stays the same.
 # To use only CI without deploying anywhere, delete the entire "deploy" job.
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: ['18', '20', '22']   # test against all supported versions
+        node: ["18", "20", "22"] # test against all supported versions
 
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -38,11 +38,11 @@ jobs:
       - name: Run test suite
         run: node test.js
 
-  # ── Deploy to Railway ─────────────────────────────────────────────────────
+  # ── Deploy to Vercel ─────────────────────────────────────────────────────
   # Only runs on push to main (not on PRs) and only if all tests passed.
   # To deploy to Render or Fly instead, see the commented alternatives below.
-  deploy-railway:
-    name: Deploy (Railway)
+  deploy-vercel:
+    name: Deploy (Vercel)
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -50,18 +50,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli@latest
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
 
-      - name: Deploy to Railway
-        run: railway up --service md-renderer --detach
+      - name: Deploy to Vercel
+        run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          # Get this from: railway.app → Account Settings → Tokens
-          # Add it to: GitHub repo → Settings → Secrets → Actions → RAILWAY_TOKEN
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # Get this from: vercel.com → Account Settings → Tokens
+          # Add it to: GitHub repo → Settings → Secrets → Actions → VERCEL_TOKEN
 
   # ── Alternative: Deploy to Render ────────────────────────────────────────
-  # Uncomment this block and delete deploy-railway if you prefer Render.
+  # Uncomment this block and delete deploy-vercel if you prefer Render.
   # Render deploy hooks trigger a redeploy — no CLI needed.
   #
   # deploy-render:
@@ -75,7 +75,7 @@ jobs:
   #       # Get the hook URL from: Render dashboard → your service → Settings → Deploy Hook
 
   # ── Alternative: Deploy to Fly.io ────────────────────────────────────────
-  # Uncomment this block and delete deploy-railway if you prefer Fly.
+  # Uncomment this block and delete deploy-vercel if you prefer Fly.
   #
   # deploy-fly:
   #   name: Deploy (Fly.io)
