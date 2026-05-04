@@ -117,6 +117,7 @@ const THEMES = {
   'scientific-doc': {
     label: 'Scientific Document',
     description: 'Serif fonts, justified text, academic two-column feel',
+    renderOn: 'server',
     doodle: `
 <svg class="doodle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" width="340" height="340" pointer-events="none" aria-hidden="true">
   <!-- Atomic orbit decoration -->
@@ -200,6 +201,7 @@ const THEMES = {
   'artistic-story': {
     label: 'Artistic Story',
     description: 'Warm parchment tones, generous line-height, elegant serif reading',
+    renderOn: 'server',
     doodle: `
 <svg class="doodle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="260" height="390" pointer-events="none" aria-hidden="true">
   <!-- Flowing vine -->
@@ -285,6 +287,7 @@ const THEMES = {
   'documentation': {
     label: 'Documentation',
     description: 'GitHub-style developer docs — clean headings, monospace code, responsive',
+    renderOn: 'server',
     doodle: `
 <svg class="doodle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" pointer-events="none" aria-hidden="true">
   <!-- Code-bracket decoration -->
@@ -372,6 +375,7 @@ const THEMES = {
   'ancient-script': {
     label: 'Ancient Script',
     description: 'Parchment background, brown ink, decorative borders — medieval scroll feel',
+    renderOn: 'server',
     doodle: `
 <svg class="doodle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300" pointer-events="none" aria-hidden="true">
   <!-- Celtic-ish knotwork corner -->
@@ -486,6 +490,7 @@ const THEMES = {
   'story': {
     label: 'Story',
     description: 'Minimal centered column, generous whitespace — fiction and long-form prose',
+    renderOn: 'server',
     doodle: `
 <svg class="doodle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" width="80" height="133" pointer-events="none" aria-hidden="true">
   <!-- Quill pen -->
@@ -554,6 +559,7 @@ const THEMES = {
   'poem': {
     label: 'Poem',
     description: 'Center-aligned, preserved line breaks, decorative star dividers',
+    renderOn: 'server',
     doodle: `
 <svg class="doodle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="240" height="240" pointer-events="none" aria-hidden="true">
   <!-- Star / petal mandala -->
@@ -651,7 +657,7 @@ function listThemes() { return Object.keys(THEMES); }
 
 function getThemeMeta() {
   return Object.entries(THEMES).map(([key, t]) => ({
-    key, label: t.label, description: t.description, isDefault: key === DEFAULT_THEME,
+    key, label: t.label, description: t.description, renderOn: t.renderOn || "server", isDefault: key === DEFAULT_THEME,
   }));
 }
 

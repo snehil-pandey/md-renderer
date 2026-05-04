@@ -1,0 +1,91 @@
+# .github/workflows/deploy.yml
+#
+# Runs tests on every push and PR.
+# Deploys to Railway on pushes to main (only if tests pass).
+#
+# To switch to Render or Fly, replace the "Deploy" step — the test job stays the same.
+# To use only CI without deploying anywhere, delete the entire "deploy" job.
+
+name: Test and Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Run the test suite ────────────────────────────────────────────────────
+  test:
+    name: Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['18', '20', '22']   # test against all supported versions
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: node test.js
+
+  # ── Deploy to Railway ─────────────────────────────────────────────────────
+  # Only runs on push to main (not on PRs) and only if all tests passed.
+  # To deploy to Render or Fly instead, see the commented alternatives below.
+  deploy-railway:
+    name: Deploy (Railway)
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@latest
+
+      - name: Deploy to Railway
+        run: railway up --service md-renderer --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # Get this from: railway.app → Account Settings → Tokens
+          # Add it to: GitHub repo → Settings → Secrets → Actions → RAILWAY_TOKEN
+
+  # ── Alternative: Deploy to Render ────────────────────────────────────────
+  # Uncomment this block and delete deploy-railway if you prefer Render.
+  # Render deploy hooks trigger a redeploy — no CLI needed.
+  #
+  # deploy-render:
+  #   name: Deploy (Render)
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   steps:
+  #     - name: Trigger Render deploy
+  #       run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+  #       # Get the hook URL from: Render dashboard → your service → Settings → Deploy Hook
+
+  # ── Alternative: Deploy to Fly.io ────────────────────────────────────────
+  # Uncomment this block and delete deploy-railway if you prefer Fly.
+  #
+  # deploy-fly:
+  #   name: Deploy (Fly.io)
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: superfly/flyctl-actions/setup-flyctl@master
+  #     - run: flyctl deploy --remote-only
+  #       env:
+  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  #         # Get this from: fly.io → Account → Access Tokens
