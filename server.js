@@ -48,7 +48,7 @@ app.use(
 // ── Remove the "X-Powered-By: Express" fingerprint header ────────────────────
 app.disable('x-powered-by');
 
-// ── Trust proxy headers if running behind nginx / Caddy / Fly / Railway ──────
+// ── Trust proxy headers if running behind nginx / Caddy / Fly / Vercel ──────
 app.set('trust proxy', 1);
 
 // ── Security headers applied to every response ───────────────────────────────

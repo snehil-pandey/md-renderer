@@ -39,13 +39,13 @@ PORT=8080 node server.js
 
 ### `GET /`
 
-| Parameter | Type | Default | What it does |
-|---|---|---|---|
-| `md` | string | — | URL to a Markdown file. Must be on an [allowed host](#allowed-hosts). |
-| `theme` | string | `documentation` | Theme name. Unknown values fall back to `documentation`. |
-| `title` | string | first `# Heading` | Overrides the page `<title>` tag. |
-| `favicon` | string | — | `https://` URL, `data:image/` URI, or a single emoji. |
-| `config` | string | — | URL to a [JSON config file](#json-config-files). Covers all of the above plus inline themes. |
+| Parameter | Type   | Default           | What it does                                                                                 |
+| --------- | ------ | ----------------- | -------------------------------------------------------------------------------------------- |
+| `md`      | string | —                 | URL to a Markdown file. Must be on an [allowed host](#allowed-hosts).                        |
+| `theme`   | string | `documentation`   | Theme name. Unknown values fall back to `documentation`.                                     |
+| `title`   | string | first `# Heading` | Overrides the page `<title>` tag.                                                            |
+| `favicon` | string | —                 | `https://` URL, `data:image/` URI, or a single emoji.                                        |
+| `config`  | string | —                 | URL to a [JSON config file](#json-config-files). Covers all of the above plus inline themes. |
 
 When `md` is omitted, the server renders its own README (this file).
 
@@ -71,10 +71,10 @@ The JSON file can contain:
 
 ```json
 {
-  "md":      "https://raw.githubusercontent.com/you/repo/main/guide.md",
-  "title":   "My Guide",
+  "md": "https://raw.githubusercontent.com/you/repo/main/guide.md",
+  "title": "My Guide",
   "favicon": "📖",
-  "theme":   "documentation"
+  "theme": "documentation"
 }
 ```
 
@@ -82,11 +82,11 @@ Or use an **inline theme object** instead of a theme name (see [Defining a theme
 
 ```json
 {
-  "md":    "https://raw.githubusercontent.com/you/repo/main/guide.md",
+  "md": "https://raw.githubusercontent.com/you/repo/main/guide.md",
   "title": "Dark Docs",
   "theme": {
-    "label":  "Dark Night",
-    "css":    "body { background: #0d1117; color: #c9d1d9; font-family: system-ui; } .container { max-width: 900px; margin: 0 auto; padding: 2rem; }",
+    "label": "Dark Night",
+    "css": "body { background: #0d1117; color: #c9d1d9; font-family: system-ui; } .container { max-width: 900px; margin: 0 auto; padding: 2rem; }",
     "doodle": ""
   }
 }
@@ -107,26 +107,26 @@ GET /?config=https://raw.githubusercontent.com/.../config.json&theme=poem
 
 I use markdown-it with the following extensions loaded:
 
-| Feature | Syntax |
-|---|---|
-| Tables | `\| A \| B \|` pipe syntax |
-| Task lists | `- [x] done` / `- [ ] todo` |
-| Code blocks | ` ```lang ``` ` with syntax highlighting (190+ languages via highlight.js) |
-| Mermaid diagrams | ` ```mermaid ``` ` — rendered as an SVG image via mermaid.ink |
-| Inline math | `$e = mc^2$` |
-| Display math | `$$\int_0^1 x\,dx$$` (KaTeX, server-side, no browser JS) |
-| Emoji shortcodes | `:rocket:` `:tada:` (GitHub-compatible names) |
-| Footnotes | `[^1]` and `[^1]: definition` |
-| Subscript | `H~2~O` |
-| Superscript | `10^9^` |
-| Callout boxes | `::: tip`, `::: warning`, `::: danger`, `::: info`, `::: note` |
-| Definition lists | `Term` followed by `: Definition` |
-| Abbreviations | `*[API]: Application Programming Interface` |
-| Blockquotes | `> text` |
-| Heading anchors | Every heading gets a self-link `#id` |
-| Linkify | Bare `https://` URLs become clickable |
-| Smart typography | `--` → en-dash, `---` → em-dash, `...` → ellipsis |
-| Strikethrough | `~~text~~` |
+| Feature          | Syntax                                                                     |
+| ---------------- | -------------------------------------------------------------------------- |
+| Tables           | `\| A \| B \|` pipe syntax                                                 |
+| Task lists       | `- [x] done` / `- [ ] todo`                                                |
+| Code blocks      | ` ```lang ``` ` with syntax highlighting (190+ languages via highlight.js) |
+| Mermaid diagrams | ` ```mermaid ``` ` — rendered as an SVG image via mermaid.ink              |
+| Inline math      | `$e = mc^2$`                                                               |
+| Display math     | `$$\int_0^1 x\,dx$$` (KaTeX, server-side, no browser JS)                   |
+| Emoji shortcodes | `:rocket:` `:tada:` (GitHub-compatible names)                              |
+| Footnotes        | `[^1]` and `[^1]: definition`                                              |
+| Subscript        | `H~2~O`                                                                    |
+| Superscript      | `10^9^`                                                                    |
+| Callout boxes    | `::: tip`, `::: warning`, `::: danger`, `::: info`, `::: note`             |
+| Definition lists | `Term` followed by `: Definition`                                          |
+| Abbreviations    | `*[API]: Application Programming Interface`                                |
+| Blockquotes      | `> text`                                                                   |
+| Heading anchors  | Every heading gets a self-link `#id`                                       |
+| Linkify          | Bare `https://` URLs become clickable                                      |
+| Smart typography | `--` → en-dash, `---` → em-dash, `...` → ellipsis                          |
+| Strikethrough    | `~~text~~`                                                                 |
 
 The parser runs with `html: false`, which means raw HTML tags in your Markdown are escaped rather than passed through. The rendered output then goes through sanitize-html before it's sent to the browser.
 
@@ -136,19 +136,19 @@ The parser runs with `html: false`, which means raw HTML tags in your Markdown a
 
 The API only fetches Markdown from these domains. This isn't arbitrary gatekeeping — it's how I prevent the server from being used as a proxy to reach internal services or cloud metadata endpoints. Letting any HTTPS URL through would mean anyone could point the API at `http://169.254.169.254/latest/meta-data/` or your internal Postgres admin panel.
 
-| Host | Notes |
-|---|---|
-| `raw.githubusercontent.com` | GitHub raw file |
-| `gist.githubusercontent.com` | GitHub Gist raw |
-| `githubusercontent.com` | GitHub user content |
-| `gitlab.com` | Path must contain `/-/raw/` or `/raw/` |
-| `bitbucket.org` | Path must contain `/raw/` |
-| `codeberg.org` | Path must contain `/raw/` |
-| `git.sr.ht` | Path must contain `/blob/` or `/tree/` |
-| `gitea.com` | Path must contain `/raw/` |
-| `git.disroot.org` | Path must contain `/raw/` |
-| `pastebin.com` | Only `/raw/<id>` paths |
-| `hackmd.io` | Only `/download` paths |
+| Host                         | Notes                                  |
+| ---------------------------- | -------------------------------------- |
+| `raw.githubusercontent.com`  | GitHub raw file                        |
+| `gist.githubusercontent.com` | GitHub Gist raw                        |
+| `githubusercontent.com`      | GitHub user content                    |
+| `gitlab.com`                 | Path must contain `/-/raw/` or `/raw/` |
+| `bitbucket.org`              | Path must contain `/raw/`              |
+| `codeberg.org`               | Path must contain `/raw/`              |
+| `git.sr.ht`                  | Path must contain `/blob/` or `/tree/` |
+| `gitea.com`                  | Path must contain `/raw/`              |
+| `git.disroot.org`            | Path must contain `/raw/`              |
+| `pastebin.com`               | Only `/raw/<id>` paths                 |
+| `hackmd.io`                  | Only `/download` paths                 |
 
 Config JSON files must also be hosted on an allowed host. Favicon URLs are not restricted — they're fetched by the browser, not the server.
 
@@ -158,14 +158,14 @@ Config JSON files must also be hosted on an allowed host. Favicon URLs are not r
 
 All six built-in themes have `renderOn: "server"`, meaning Markdown is parsed on the server and the browser receives complete HTML. The browser needs no JavaScript to render the page.
 
-| Key | Description |
-|---|---|
-| `documentation` ← default | GitHub-style developer docs. Clean, readable, familiar. |
-| `scientific-doc` | Serif fonts, justified paragraphs, ruled headings. Good for long papers or technical notes. |
-| `artistic-story` | Warm parchment background, generous line spacing, vine SVG doodle. |
-| `ancient-script` | Dark parchment, Celtic knotwork doodle, brown ink. Decorative borders around the content area. |
-| `story` | Narrow centered column, quill doodle, minimal decoration. Designed for fiction or essays. |
-| `poem` | Center-aligned, mandala doodle, star-symbol `hr` dividers. |
+| Key                       | Description                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------- |
+| `documentation` ← default | GitHub-style developer docs. Clean, readable, familiar.                                        |
+| `scientific-doc`          | Serif fonts, justified paragraphs, ruled headings. Good for long papers or technical notes.    |
+| `artistic-story`          | Warm parchment background, generous line spacing, vine SVG doodle.                             |
+| `ancient-script`          | Dark parchment, Celtic knotwork doodle, brown ink. Decorative borders around the content area. |
+| `story`                   | Narrow centered column, quill doodle, minimal decoration. Designed for fiction or essays.      |
+| `poem`                    | Center-aligned, mandala doodle, star-symbol `hr` dividers.                                     |
 
 ---
 
@@ -206,23 +206,23 @@ A theme is a plain JavaScript object with four fields. Open `services/themeEngin
 
 ### What CSS selectors to target
 
-| Selector | What it styles |
-|---|---|
-| `body` | Page background, base font, base colour |
-| `.container` | The content wrapper. Always set `max-width` and `margin: 0 auto`. |
-| `h1`–`h6` | Heading sizes, weights, border rules |
-| `pre.hljs-pre` | Code block outer wrapper |
-| `pre.hljs-pre code` | Code block inner `<code>` element |
-| `.math-display` | Block-level KaTeX math (display mode) |
-| `.mermaid-diagram` | Mermaid figure container |
-| `.custom-container--tip` | `::: tip` callout |
-| `.custom-container--warning` | `::: warning` callout |
-| `.custom-container--danger` | `::: danger` callout |
-| `.custom-container--info` | `::: info` callout |
-| `.custom-container--note` | `::: note` callout |
-| `.footnotes` | The footnote section at the bottom |
-| `a.header-anchor` | The self-link anchor on headings (usually hidden until hover) |
-| `.doodle` | Your SVG doodle — position it with `position: fixed` or `absolute` |
+| Selector                     | What it styles                                                     |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `body`                       | Page background, base font, base colour                            |
+| `.container`                 | The content wrapper. Always set `max-width` and `margin: 0 auto`.  |
+| `h1`–`h6`                    | Heading sizes, weights, border rules                               |
+| `pre.hljs-pre`               | Code block outer wrapper                                           |
+| `pre.hljs-pre code`          | Code block inner `<code>` element                                  |
+| `.math-display`              | Block-level KaTeX math (display mode)                              |
+| `.mermaid-diagram`           | Mermaid figure container                                           |
+| `.custom-container--tip`     | `::: tip` callout                                                  |
+| `.custom-container--warning` | `::: warning` callout                                              |
+| `.custom-container--danger`  | `::: danger` callout                                               |
+| `.custom-container--info`    | `::: info` callout                                                 |
+| `.custom-container--note`    | `::: note` callout                                                 |
+| `.footnotes`                 | The footnote section at the bottom                                 |
+| `a.header-anchor`            | The self-link anchor on headings (usually hidden until hover)      |
+| `.doodle`                    | Your SVG doodle — position it with `position: fixed` or `absolute` |
 
 ### The doodle field
 
@@ -248,11 +248,12 @@ doodle: `
 }
 .container {
   position: relative;
-  z-index: 1;  /* always sits above the doodle */
+  z-index: 1; /* always sits above the doodle */
 }
 ```
 
 Rules for doodles:
+
 - No `<script>` elements.
 - No `on*` event-handler attributes (`onclick`, `onmouseover`, etc.).
 - `pointer-events="none"` on the root `<svg>` (so it never blocks text selection).
@@ -271,6 +272,7 @@ This is a codebase field — it lives in `services/themeEngine.js` on built-in t
 The reason is simple: the server hasn't reviewed user CSS. It might be heavy. It might expect browser APIs to run alongside it. Parsing and rendering server-side on untrusted inputs is a CPU risk we don't want to take. The client-side path already caches the raw Markdown and offloads all parsing to the browser, so the server stays fast regardless of how complex the user theme is.
 
 When you add a new built-in theme to `themeEngine.js`, you choose:
+
 - `renderOn: "server"` — for lightweight, dependency-free themes where server-side rendering is clearly safe and beneficial.
 - `renderOn: "client"` — for themes that need JavaScript for interactive features (live search, collapsible TOC, animated elements). The server still caches the Markdown and handles fetch; the browser handles display.
 
@@ -280,11 +282,11 @@ If you don't want to edit `themeEngine.js` — for example, you're using the hos
 
 ```json
 {
-  "md":     "https://raw.githubusercontent.com/you/repo/main/guide.md",
-  "title":  "API Reference",
+  "md": "https://raw.githubusercontent.com/you/repo/main/guide.md",
+  "title": "API Reference",
   "favicon": "🔧",
   "theme": {
-    "label":  "Blueprint",
+    "label": "Blueprint",
     "doodle": "",
     "css": "body { font-family: 'Courier New', monospace; background: #0a0a1a; color: #00ff88; padding: 40px 20px; } .container { max-width: 900px; margin: 0 auto; } h1, h2 { color: #00ccff; border-bottom: 1px solid #00ccff44; padding-bottom: .3em; } a { color: #00ff88; } code { background: rgba(0,255,136,.1); padding: .15em .4em; border-radius: 3px; color: #00ff88; } pre.hljs-pre { background: #050510; border: 1px solid #00ccff33; border-radius: 6px; padding: 18px; overflow-x: auto; } pre.hljs-pre code { background: none; padding: 0; } blockquote { border-left: 3px solid #00ccff; padding: .5em 1em; color: #88aacc; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #00ccff33; padding: 7px 12px; } th { background: rgba(0,204,255,.08); }"
   }
@@ -292,6 +294,7 @@ If you don't want to edit `themeEngine.js` — for example, you're using the hos
 ```
 
 **JSON theme rules:**
+
 - `css` is required and must be at least 20 characters. The server rejects placeholder values.
 - `label` is optional — defaults to `"Custom Theme"`.
 - `doodle` is optional — set it to `""` if you don't want one. Must not contain `<script>` or `on*` attributes.
@@ -355,16 +358,16 @@ The design rule I followed: each module has one job and doesn't know about the o
 
 ## Hosting it
 
-### Option 1: Railway (easiest)
+### Option 1: Vercel (easiest)
 
-Railway runs Node.js apps directly from a GitHub repo with zero configuration files.
+Vercel runs Node.js apps directly from a GitHub repo with zero configuration files.
 
 1. Push this repo to GitHub.
-2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub.
-3. Select your repo. Railway detects `package.json` and runs `npm start` automatically.
-4. Your API is live at `https://<your-project>.railway.app`.
+2. Go to [vercel.com](https://vercel.com) → New Project → Import from GitHub.
+3. Select your repo. Vercel detects `package.json` and runs `npm start` automatically.
+4. Your API is live at `https://<your-project>.vercel.app`.
 
-To redeploy on every push, Railway does this automatically once connected.
+To redeploy on every push, Vercel does this automatically once connected.
 
 ### Option 2: Render
 
@@ -393,7 +396,7 @@ Free tier: up to 3 shared-CPU VMs with 256 MB RAM — enough for this server.
 
 ### GitHub Actions CI/CD (deploy on push)
 
-Create `.github/workflows/deploy.yml`. The example below deploys to Railway, but the same pattern works for Render and Fly with their respective CLI tools.
+Create `.github/workflows/deploy.yml`. The example below deploys to Vercel, but the same pattern works for Render and Fly with their respective CLI tools.
 
 ```yaml
 name: Deploy
@@ -409,47 +412,50 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
       - run: npm ci
       - run: node test.js
 
   deploy:
-    needs: test          # only deploy if tests pass
+    needs: test # only deploy if tests pass
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Railway
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
+      # Vercel
+      - name: Install Vercel CLI
+        run: npm install -g vercel
 
-      - name: Deploy to Railway
-        run: railway up --service md-renderer
+      - name: Deploy to Vercel
+        run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 ```
 
-Get `RAILWAY_TOKEN` from your Railway account settings → Tokens, then add it to your GitHub repo under Settings → Secrets → Actions.
+Get `VERCEL_TOKEN` from your Vercel account settings → Tokens, then add it to your GitHub repo under Settings → Secrets → Actions.
 
 For **Render**, replace the deploy step with:
+
 ```yaml
-      - name: Trigger Render deploy hook
-        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+- name: Trigger Render deploy hook
+  run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 ```
+
 Get the deploy hook URL from your Render service → Settings → Deploy Hook.
 
 For **Fly.io**:
+
 ```yaml
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+- uses: superfly/flyctl-actions/setup-flyctl@master
+- run: flyctl deploy --remote-only
+  env:
+    FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 ```
 
 ### Why not GitHub Pages?
 
-GitHub Pages serves static files. This server needs to run Node.js to fetch remote URLs, cache them, and run the markdown parser. You can't run a persistent HTTP server on GitHub Pages. What you *can* do is use GitHub Actions to test and deploy *to* one of the platforms above.
+GitHub Pages serves static files. This server needs to run Node.js to fetch remote URLs, cache them, and run the markdown parser. You can't run a persistent HTTP server on GitHub Pages. What you _can_ do is use GitHub Actions to test and deploy _to_ one of the platforms above.
 
 If you genuinely need zero-infrastructure hosting and can live with the cold-start tradeoff, Render's free tier is the closest thing.
 
@@ -457,20 +463,20 @@ If you genuinely need zero-infrastructure hosting and can live with the cold-sta
 
 ## Security
 
-| Layer | What it does |
-|---|---|
-| URL allowlist | Fetches only from 11 trusted platforms. Prevents SSRF. |
-| HTTPS enforcement | Non-HTTPS URLs are rejected before any fetch happens. |
-| `html: false` in markdown-it | Raw HTML in Markdown source is escaped, not injected. |
-| sanitize-html pass | Post-render tag and attribute allowlist. |
-| `on*` attribute stripping | `onclick`, `onerror`, `onload`, etc. removed from all tags. |
-| KaTeX style filtering | Inline `style` on `<span>` limited to a small set of layout properties. |
-| `javascript:` blocking | Href values with `javascript:` scheme are replaced with `#`. |
-| CSP meta tag (server mode) | `script-src 'none'` — no scripts can run on rendered pages. |
-| CSP meta tag (client mode) | `script-src https://cdn.jsdelivr.net 'unsafe-inline'` — only the CDN and the inline init script. |
-| Doodle SVG validation | `<script>` tags and `on*` attributes in inline doodles are rejected at config parse time. |
-| 3-second timeout | AbortController cuts off slow upstream servers before they can hold up the process. |
-| 1 MB limit | Byte counter during streaming; connection cancelled immediately if exceeded. |
+| Layer                        | What it does                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| URL allowlist                | Fetches only from 11 trusted platforms. Prevents SSRF.                                           |
+| HTTPS enforcement            | Non-HTTPS URLs are rejected before any fetch happens.                                            |
+| `html: false` in markdown-it | Raw HTML in Markdown source is escaped, not injected.                                            |
+| sanitize-html pass           | Post-render tag and attribute allowlist.                                                         |
+| `on*` attribute stripping    | `onclick`, `onerror`, `onload`, etc. removed from all tags.                                      |
+| KaTeX style filtering        | Inline `style` on `<span>` limited to a small set of layout properties.                          |
+| `javascript:` blocking       | Href values with `javascript:` scheme are replaced with `#`.                                     |
+| CSP meta tag (server mode)   | `script-src 'none'` — no scripts can run on rendered pages.                                      |
+| CSP meta tag (client mode)   | `script-src https://cdn.jsdelivr.net 'unsafe-inline'` — only the CDN and the inline init script. |
+| Doodle SVG validation        | `<script>` tags and `on*` attributes in inline doodles are rejected at config parse time.        |
+| 3-second timeout             | AbortController cuts off slow upstream servers before they can hold up the process.              |
+| 1 MB limit                   | Byte counter during streaming; connection cancelled immediately if exceeded.                     |
 
 ---
 
@@ -488,17 +494,17 @@ These aren't on a timeline — just things I plan to add as the need comes up:
 
 ## Error reference
 
-| Code | When it happens |
-|---|---|
-| 400 | Malformed URL, wrong extension, bad JSON config, short CSS, script in doodle |
-| 403 | Domain not on the allowlist |
-| 404 | File not found at the upstream URL |
-| 413 | File exceeds 1 MB |
-| 422 | Markdown parsing failed (rare — markdown-it is very permissive) |
-| 500 | Server error (render crash, missing local README) |
-| 502 | Upstream returned an HTTP error |
-| 503 | Rate-limited by upstream |
-| 504 | Upstream did not respond within 3 seconds |
+| Code | When it happens                                                              |
+| ---- | ---------------------------------------------------------------------------- |
+| 400  | Malformed URL, wrong extension, bad JSON config, short CSS, script in doodle |
+| 403  | Domain not on the allowlist                                                  |
+| 404  | File not found at the upstream URL                                           |
+| 413  | File exceeds 1 MB                                                            |
+| 422  | Markdown parsing failed (rare — markdown-it is very permissive)              |
+| 500  | Server error (render crash, missing local README)                            |
+| 502  | Upstream returned an HTTP error                                              |
+| 503  | Rate-limited by upstream                                                     |
+| 504  | Upstream did not respond within 3 seconds                                    |
 
 All error responses are styled HTML pages with the correct HTTP status code. You'll never get a JSON error from the rendering endpoint.
 
